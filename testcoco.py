@@ -29,19 +29,18 @@ class Point(Randomized):
         self.add_constraint(lambda  pdir, pdis:  32< pdis < 64 if pdir == 1 else pdis <= 32)
         # add constraint, P(pdis<10)=0.9, P(pdis>=10)=0.1
         self.add_constraint(lambda pdis: 0.9 if pdis < 10 else 0.1)
-# @CoverPoint(
-#     name = "top.direction",
-#     xf = lambda point: point.pdir,
-#     bins = [0, 1]
-# )
-# @CoverPoint(
-#     name = "top.dis",
-#     xf = lambda point: point.pdis,
-#     bins = list(range(1, 64)),
-#     # rel = lambda val, b: b[0]< val <b[1]
-# )
-# def show(point):
-#     logging.info("direction is %d, distance is %d type is "+ point.ptype, point.pdir, point.pdis)
+@CoverPoint(
+    name = "top.p.direction",
+    xf = lambda point: point.pdir,
+    bins = [0, 1]
+)
+@CoverPoint(
+    name = "top.p.dis",
+    xf = lambda point: point.pdis,
+    bins = list(range(1, 64))
+)
+def p_test(point):
+    logging.info("direction is %d, distance is %d type is "+ point.ptype, point.pdir, point.pdis)
 
 
 # example 2
@@ -57,21 +56,41 @@ class SimpleRandomized(Randomized):
         self.add_rand("size", ["small", "medium", "large"])
 
         self.add_constraint(lambda x, y: x < y)
+
 @CoverPoint(
-    name = "top.x",
-    xf   = lambda x, y, size: (x, y),
-    bins = [(x,y) for x in range(0, 10) for y in range(x,10)],
+    name = "top.sim.size",
+    vname = "size",
+    bins= ["small", "medium", "large"]
 )
-def sim_show(x, y, size):
-    logging.info("(x, y) is (%d, %d), size" + size, x, y)
+@CoverPoint(
+    name = "top.sim.pair",
+    xf   = lambda x, y, size: (x, y),
+    bins = [(x,y) for x in range(0, 10) for y in range(x+1,10)],
+)
+@CoverCross(
+    "top.sim.cross",
+    items = ["top.sim.pair", "top.sim.size"],
+    # small size(x=0~4 or y=0~4), medium size(x=5~7 or y=5~7), large size(x=8~9 or y=8~9)，but cocotb-coverage use ignore_bin in CoverCross, so use oppostite condition
+    ign_bins= [((x, y), "small") for x in range(5, 10) for y in range(5, 10)] +
+            [((x, y), "medium") for x in range(0, 5) for y in range(0, 5)] +
+            [((x, y), "medium") for x in range(8, 10) for y in range(8, 10)] +
+            [((x, y), "large") for x in range(0, 8) for y in range(0, 8)]
+)
+def simple_test(x, y, size):
+    logging.info("(x, y) is (%d, %d), size " + size, x, y)
+
 if __name__ == "__main__":
     # setting logging level
     logging.basicConfig(level=logging.DEBUG)
     for _ in range(10):
-        p = SimpleRandomized()
+        p = Point()
         p.randomize()
-        sim_show(p.x, p.y, p.size)
-    coverage_db.report_coverage(logging.info, bins= True)
+        p_test(p)
+        simple = SimpleRandomized()
+        simple.randomize()
+        simple_test(simple.x, simple.y, simple.size)
+    coverage_db.report_coverage(logging.info, bins= False)
+
 
         
 
